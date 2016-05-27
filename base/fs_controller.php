@@ -592,7 +592,7 @@ class fs_controller
          else
          {
             $this->new_error_msg('¡El usuario '.$_COOKIE['user'].' no existe!');
-            $this->log_out();
+            $this->log_out(TRUE);
             $this->user->clean_cache(TRUE);
             $this->cache->clean();
          }
@@ -604,20 +604,38 @@ class fs_controller
    /**
     * Gestiona el cierre de sesión
     */
-   private function log_out()
+   private function log_out($rmuser = FALSE)
    {
+      /// borramos las cookies
       setcookie('logkey', '', time()-FS_COOKIES_EXPIRE);
+      if( isset($_SERVER['REQUEST_URI']) )
+      {
+         $aux = parse_url( str_replace('/index.php', '', $_SERVER['REQUEST_URI']) );
+         setcookie('logkey', '', time()-FS_COOKIES_EXPIRE, $aux['path'].'/');
+      }
       
+      /// ¿Eliminamos la cookie del usuario?
+      if($rmuser)
+      {
+         setcookie('user', '', time()-FS_COOKIES_EXPIRE);
+         if( isset($_SERVER['REQUEST_URI']) )
+         {
+            $aux = parse_url( str_replace('/index.php', '', $_SERVER['REQUEST_URI']) );
+            setcookie('user', '', time()-FS_COOKIES_EXPIRE, $aux['path'].'/');
+         }
+      }
+      
+      /// guardamos el evento en el log
       $fslog = new fs_log();
+      $fslog->tipo = 'login';
+      $fslog->detalle = 'El usuario ha cerrado la sesión.';
+      $fslog->ip = $_SERVER['REMOTE_ADDR'];
       
       if( isset($_COOKIE['user']) )
       {
          $fslog->usuario = $_COOKIE['user'];
       }
       
-      $fslog->tipo = 'login';
-      $fslog->detalle = 'El usuario ha cerrado la sesión.';
-      $fslog->ip = $_SERVER['REMOTE_ADDR'];
       $fslog->save();
    }
    
@@ -1175,7 +1193,7 @@ class fs_controller
       else
          return FALSE;
    }
-   
+
    /**
     * Busca en la lista de plugins activos, en orden inverso de prioridad
     * (el último plugin activo tiene más prioridad que el primero)
@@ -1194,7 +1212,7 @@ class fs_controller
             return 'plugins/'.$plugin.'/view/js/'.$filename;
          }
       }
-      
+
       /// si no está en los plugins estará en el núcleo
       return 'view/js/'.$filename;
    }
